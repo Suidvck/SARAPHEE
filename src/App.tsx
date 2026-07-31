@@ -187,8 +187,12 @@ function Header() {
     <header className="sticky top-0 z-40 border-b border-ink/10 bg-paper/90 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-3">
         <a href="#top" className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-leaf-deep text-limepop">
-            <LeafMark className="h-5 w-5" />
+          <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg bg-leaf-deep text-limepop">
+            <img
+              src={`${import.meta.env.BASE_URL}icon.png`}
+              alt={config.event.title}
+              className="h-9 w-9 rounded-lg object-cover"
+            />
           </span>
           <span className="leading-none">
             <span className="font-display block text-base font-bold text-ink">{config.event.title}</span>
