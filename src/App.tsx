@@ -316,6 +316,13 @@ function CountdownHero() {
       >
         {T.hero.decor}
       </div>
+      <div
+        aria-hidden="true"
+        className="font-display pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[110px] font-extrabold tracking-tight text-transparent select-none sm:text-[170px]"
+        style={{ WebkitTextStroke: "1.5px rgba(25,156,74,0.22)" }}
+      >
+        {T.hero.decor}
+      </div>
       <div className="relative mx-auto max-w-5xl px-5 pt-12 pb-12 text-center sm:pt-16 sm:pb-16">
         <p className="flex items-center justify-center gap-2 text-sm font-semibold text-leaf-deep">
           <span className="inline-block h-2 w-2 rounded-full bg-leaf motion-safe:animate-pulse" />
