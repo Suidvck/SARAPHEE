@@ -899,13 +899,17 @@ function RegisterSection() {
 }
 
 function ScoreSection() {
+  const { data } = useApi<Record<string, string | number | boolean | null>>(`${API_BASE}/api/scores`, 30_000);
+  const hasApi = !!data && Object.keys(data).length > 0;
+  const s = (hasApi ? data : config.score) as Record<string, string | number>;
+
   const medals = [
-    { label: T.score.medals[0], value: Number(config.score["เหรียญทอง"]) || 0, tint: "text-amber-500" },
-    { label: T.score.medals[1], value: Number(config.score["เหรียญเงิน"]) || 0, tint: "text-zinc-400" },
-    { label: T.score.medals[2], value: Number(config.score["เหรียญทองแดง"]) || 0, tint: "text-orange-700" },
+    { label: T.score.medals[0], value: Number(s["เหรียญทอง"] ?? s["ทอง"]) || 0, tint: "text-amber-500" },
+    { label: T.score.medals[1], value: Number(s["เหรียญเงิน"] ?? s["เงิน"]) || 0, tint: "text-zinc-400" },
+    { label: T.score.medals[2], value: Number(s["เหรียญทองแดง"] ?? s["ทองแดง"]) || 0, tint: "text-orange-700" },
   ];
-  const rank = config.score["อันดับ"] || "—";
-  const totalColors = config.score["จำนวนสี"] || "—";
+  const rank = s["อันดับ"] || "—";
+  const totalColors = s["จำนวนสี"] || "—";
 
   return (
     <section id="score" className="mx-auto max-w-5xl scroll-mt-20 px-5 pt-14 sm:pt-20">
