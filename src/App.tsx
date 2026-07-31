@@ -44,7 +44,7 @@ const EVENT_DATE = config.event.date;
 const WEATHER_URL =
   "https://api.open-meteo.com/v1/forecast?latitude=14.0753455&longitude=101.8194655&hourly=temperature_2m";
 
-const API_BASE = "http://localhost:3001";
+const API_BASE = config.api.baseUrl || "http://localhost:3001";
 
 const DEVICE_KEY = "sarapee-cheer-device";
 const CHEERED_KEY = "sarapee-cheer-done";

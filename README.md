@@ -68,9 +68,7 @@ npm run dev
 npm run build
 ```
 
-## การแก้ไขข้อมูลผ่าน JSON
-
-### `src/data/config.json`
+## การแก้ไขข้อมูลผ่าน JSON### `src/data/config.json`
 
 | คีย์ | ไว้แก้ |
 |---|---|
@@ -105,3 +103,23 @@ npm run build
 - `/score-update` — อัปเดตคะแนนเฉพาะ field ที่ระบุ
 - `/score-edit` — แก้คะแนนทั้งชุดผ่าน modal (JSON)
 - `/register-add` — เพิ่มใบสมัครด้วยมือ
+
+## การ Deploy (ฟรี)
+
+### Frontend — GitHub Pages
+
+โปรเจกต์มีไฟล์ `.github/workflows/deploy.yml` ไว้แล้ว โดยจะ build และ deploy อัตโนมัติทุกครั้งที่ push ขึ้น `main`
+
+1. Push โค้ดขึ้น GitHub
+2. ที่หน้า repo → **Settings → Pages** → ตั้ง Source เป็น **GitHub Actions**
+3. รอ workflow รันเสร็จ เว็บจะขึ้นที่ `https://<username>.github.io/SARAPHEE/`
+
+### Backend — Render
+
+1. เข้า https://render.com → **New → Web Service** → เชื่อม repo นี้ (หรือใช้ **Blueprint** จาก `render.yaml`)
+2. เลือก plan **Free**
+3. ตั้งค่า Environment Variables ทั้งหมดจาก `.env` (Discord token, guild ID, channel IDs)
+4. Deploy เสร็จจะได้ URL เช่น `https://saraphee-bot.onrender.com`
+5. เอา URL นั้นไปใส่ใน `src/data/config.json` → คีย์ `api.baseUrl` แล้ว build/deploy ใหม่
+
+**หมายเหตุ:** Free plan ของ Render จะหลับเมื่อไม่มี request ~15 นาที (เปิดเองเมื่อมี request) และไฟล์ `cheer-state.json` จะถูกล้างเมื่อ redeploy/restart ทำให้ตัวนับเชียร์อาจรีเซ็ต
