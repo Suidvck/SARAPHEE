@@ -311,13 +311,6 @@ function CountdownHero() {
     <section id="top" className="stripes relative overflow-hidden border-b border-ink/10">
       <div
         aria-hidden="true"
-        className="font-display pointer-events-none absolute -top-8 right-0 text-[110px] font-extrabold tracking-tight text-transparent select-none sm:text-[170px]"
-        style={{ WebkitTextStroke: "1.5px rgba(25,156,74,0.22)" }}
-      >
-        {T.hero.decor}
-      </div>
-      <div
-        aria-hidden="true"
         className="font-display pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[110px] font-extrabold tracking-tight text-transparent select-none sm:text-[170px]"
         style={{ WebkitTextStroke: "1.5px rgba(25,156,74,0.22)" }}
       >
