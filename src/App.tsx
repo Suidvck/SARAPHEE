@@ -316,8 +316,8 @@ function CountdownHero() {
       >
         {T.hero.decor}
       </div>
-      <div className="relative mx-auto max-w-5xl px-5 pt-12 pb-12 sm:pt-16 sm:pb-16">
-        <p className="flex items-center gap-2 text-sm font-semibold text-leaf-deep">
+      <div className="relative mx-auto max-w-5xl px-5 pt-12 pb-12 text-center sm:pt-16 sm:pb-16">
+        <p className="flex items-center justify-center gap-2 text-sm font-semibold text-leaf-deep">
           <span className="inline-block h-2 w-2 rounded-full bg-leaf motion-safe:animate-pulse" />
           {config.event.sub}
         </p>
@@ -326,7 +326,7 @@ function CountdownHero() {
           <span className="text-leaf">{config.event.team}</span>
           <span className="block"></span>
         </h1>
-        <div className="font-display mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-base font-semibold text-ink-soft sm:text-lg">
+        <div className="font-display mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-base font-semibold text-ink-soft sm:text-lg">
           <span className="flex items-center gap-2">
             <IconCalendar className="h-4.5 w-4.5 text-leaf" />
             {config.event.dateLabel}
@@ -337,7 +337,7 @@ function CountdownHero() {
           </span>
         </div>
 
-        <div className="mt-8 flex max-w-md items-stretch gap-2 sm:gap-3" role="timer" aria-label={T.hero.timerLabel}>
+        <div className="mt-8 mx-auto flex max-w-md items-stretch gap-2 sm:gap-3" role="timer" aria-label={T.hero.timerLabel}>
           {units.map((u, i) => (
             <div key={u.label} className="contents">
               {i > 0 && <span className="font-display self-center text-2xl font-bold text-leaf/50">:</span>}
@@ -359,7 +359,7 @@ function CountdownHero() {
           ))}
         </div>
 
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
           <a
             href="#wall"
             className="font-display inline-flex items-center gap-2 rounded-full bg-leaf-deep px-6 py-3 text-base font-semibold text-paper shadow-[0_10px_24px_rgba(15,107,51,0.3)] transition hover:-translate-y-0.5 hover:bg-leaf active:translate-y-0"
@@ -389,13 +389,15 @@ function ScheduleSection() {
   const now = useNow(30_000);
 
   const rows = useMemo(() => {
-    return schedule.map((m) => {
-      const date = EVENT_DATE.slice(0, 10);
-      const start = new Date(`${date}T${m.time}:00+07:00`).getTime();
-      const end = start + 60 * 60_000;
-      const status = now.getTime() >= start && now.getTime() < end ? "live" : now.getTime() >= end ? "done" : "next";
-      return { ...m, status };
-    });
+    const date = EVENT_DATE.slice(0, 10);
+    return schedule
+      .map((m) => {
+        const start = new Date(`${date}T${m.time}:00+07:00`).getTime();
+        const end = start + 60 * 60_000;
+        const status = now.getTime() >= start && now.getTime() < end ? "live" : now.getTime() >= end ? "done" : "next";
+        return { ...m, status, start };
+      })
+      .sort((a, b) => a.start - b.start);
   }, [now, schedule]);
 
   const firstUpcoming = rows.find((r) => r.status === "next")?.id;
