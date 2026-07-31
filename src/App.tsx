@@ -174,7 +174,7 @@ function SectionHead({ no, title, sub, icon: Icon }: { no: string; title: string
       </span>
       <div>
         <span className="font-display block text-xs font-semibold tracking-[0.28em] text-leaf-deep uppercase">{no}</span>
-        <h2 className="font-display text-[1.65rem] leading-tight font-bold text-ink sm:text-3xl">{title}</h2>
+        <h2 className="font-display text-2xl leading-tight font-bold text-ink sm:text-3xl">{title}</h2>
         {sub && <p className="mt-1.5 text-sm text-ink-soft sm:text-base">{sub}</p>}
       </div>
     </div>
@@ -321,7 +321,7 @@ function CountdownHero() {
           <span className="inline-block h-2 w-2 rounded-full bg-leaf motion-safe:animate-pulse" />
           {config.event.sub}
         </p>
-        <h1 className="font-display mt-4 text-[2.6rem] leading-[1.05] font-extrabold text-ink sm:text-6xl">
+        <h1 className="font-display mt-4 text-4xl leading-[1.1] font-extrabold text-ink sm:text-6xl">
           {config.event.name}
           <span className="text-leaf">{config.event.team}</span>
           <span className="block"></span>
@@ -557,9 +557,9 @@ function WeatherSection() {
           {data ? (
             <>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-                <p className="font-display text-5xl font-extrabold text-ink tabular-nums sm:text-6xl">
+                <p className="font-display text-4xl font-extrabold text-ink tabular-nums sm:text-6xl">
                   {data.temp.toFixed(1)}
-                  <span className="text-2xl text-leaf-deep">°C</span>
+                  <span className="text-2xl text-leaf-deep sm:text-4xl">°C</span>
                 </p>
                 <p className="text-sm text-ink-soft">
                   {T.weather.high} <strong className="font-display text-ink">{data.hi.toFixed(0)}°</strong> • {T.weather.low}{" "}
