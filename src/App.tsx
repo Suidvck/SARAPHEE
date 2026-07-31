@@ -226,9 +226,8 @@ function AnnouncementsBanner() {
   }, [raw]);
 
   const [activeIdx, setActiveIdx] = useState(0);
-  const [closed, setClosed] = useState(false);
 
-  if (closed || announcements.length === 0) return null;
+  if (announcements.length === 0) return null;
 
   const a = announcements[activeIdx];
   const urgent = a.level === "urgent";
@@ -289,13 +288,6 @@ function AnnouncementsBanner() {
               <IconChevron className="h-4 w-4 -rotate-90" />
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setClosed(true)}
-            className="flex-1 rounded-lg px-3 py-2 text-xs font-semibold text-ink-soft transition hover:bg-black/5 hover:text-ink sm:flex-none"
-          >
-            {T.announcements.acknowledge}
-          </button>
         </div>
       </motion.div>
     </section>
@@ -1118,11 +1110,11 @@ export default function App() {
           <CountdownHero />
           <AnnouncementsBanner />
           <ScheduleSection />
-          <WeatherSection />
           <CheerWall />
           <RegisterSection />
           <ScoreSection />
           <CheerHub />
+          <WeatherSection />
         </main>
         <Footer />
       </div>
