@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Kanit", "Anuphan", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Anuphan", "Kanit", ui-sans-serif, system-ui, sans-serif;
+  --font-hand: "Sriracha", "Anuphan", cursive;
+
+  --color-paper: #f6faf2;
+  --color-ink: #0e2415;
+  --color-ink-soft: #47604f;
+  --color-leaf: #199c4a;
+  --color-leaf-deep: #0f6b33;
+  --color-mint: #e4f1e0;
+  --color-limepop: #b8ec51;
+  --color-board: #0b1e12;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-limepop);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-leaf);
+  outline-offset: 2px;
+}
+
+.stripes {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(25, 156, 74, 0.07) 0 14px,
+    transparent 14px 28px
+  );
+}
+
+.board-grid {
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(184, 236, 81, 0.14), transparent 34%),
+    linear-gradient(rgba(184, 236, 81, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(184, 236, 81, 0.05) 1px, transparent 1px);
+  background-size: auto, 26px 26px, 26px 26px;
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker-scroll 26s linear infinite;
+}
+
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .ticker-track {
+    animation: none;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
