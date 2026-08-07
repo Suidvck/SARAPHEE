@@ -493,7 +493,10 @@ app.get("/api/matches", async (_, res) => {
   try {
     const messages = await getChannelMessages(channels.matches, 50);
     const items = messages
-      .map((message) => normalizeMatch(parseMessageData(message)))
+      .map((message) => {
+        const data = normalizeMatch(parseMessageData(message));
+        return data ? { id: message.id, ...data } : null;
+      })
       .filter(Boolean);
     res.json(items);
   } catch (error) {
