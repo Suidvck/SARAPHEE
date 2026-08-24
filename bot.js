@@ -468,7 +468,12 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 app.get("/api/health", (_, res) => {
-  res.json({ ok: true, guildId, ready: client.isReady() });
+  res.json({
+    ok: true,
+    guildId,
+    ready: client.isReady(),
+    channels: Object.fromEntries(Object.entries(channels).map(([k, v]) => [k, Boolean(v)])),
+  });
 });
 
 app.get("/api/cheer-count", (_, res) => {
@@ -518,13 +523,6 @@ app.get("/api/cheer-wall", async (_, res) => {
   } catch (error) {
     res.status(500).json({ error: "failed_to_read_cheer_wall", detail: String(error) });
   }
-});
-
-app.get("/api/health", (_, res) => {
-  res.json({
-    ready: client.isReady(),
-    channels: Object.fromEntries(Object.entries(channels).map(([k, v]) => [k, Boolean(v)])),
-  });
 });
 
 app.get("/api/matches", async (_, res) => {
