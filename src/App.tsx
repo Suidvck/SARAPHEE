@@ -408,7 +408,10 @@ function ScheduleSection() {
         <SectionHead no="01" icon={IconCalendar} title={T.schedule.title} sub={T.schedule.sub} />
       </Reveal>
       <Reveal delay={0.05}>
-        <ul className="divide-y divide-ink/10 border-y border-ink/10">
+        {rows.length === 0 ? (
+          <p className="border-y border-ink/10 py-10 text-center text-sm text-ink-soft">{T.schedule.empty}</p>
+        ) : (
+          <ul className="divide-y divide-ink/10 border-y border-ink/10">
           {rows.map((m) => {
             const isNext = m.id === firstUpcoming;
             const Icon = m.icon;
@@ -458,7 +461,8 @@ function ScheduleSection() {
               </li>
             );
           })}
-        </ul>
+          </ul>
+        )}
       </Reveal>
     </section>
   );
