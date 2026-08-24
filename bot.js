@@ -520,6 +520,13 @@ app.get("/api/cheer-wall", async (_, res) => {
   }
 });
 
+app.get("/api/health", (_, res) => {
+  res.json({
+    ready: client.isReady(),
+    channels: Object.fromEntries(Object.entries(channels).map(([k, v]) => [k, Boolean(v)])),
+  });
+});
+
 app.get("/api/matches", async (_, res) => {
   try {
     const messages = await getChannelMessages(channels.matches, 50);
