@@ -63,21 +63,28 @@ async function withTimeout(promise, ms, fallback) {
   }
 }
 
+const messageCache = new Map();
+
 async function getChannelMessages(channelId, limit = 50) {
   if (!channelId) return [];
+  const hit = messageCache.get(channelId);
+  if (hit && Date.now() - hit.at < 60000) return hit.messages;
   try {
-    return await withTimeout(
+    const messages = await withTimeout(
       (async () => {
         const channel = await client.channels.fetch(channelId, { cache: false });
-        if (!channel || !channel.isTextBased()) return [];
-        const messages = await channel.messages.fetch({ limit, cache: false });
-        return [...messages.values()];
+        if (!channel || !channel.isTextBased()) return null;
+        const fetched = await channel.messages.fetch({ limit, cache: false });
+        return [...fetched.values()];
       })(),
       10000,
-      []
+      null
     );
+    if (!messages) return hit?.messages ?? [];
+    messageCache.set(channelId, { at: Date.now(), messages });
+    return messages;
   } catch {
-    return [];
+    return hit?.messages ?? [];
   }
 }
 
