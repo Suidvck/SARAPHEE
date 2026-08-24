@@ -49,12 +49,36 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
 
+async function withTimeout(promise, ms, fallback) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(fallback), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function getChannelMessages(channelId, limit = 50) {
   if (!channelId) return [];
-  const channel = await client.channels.fetch(channelId, { cache: false });
-  if (!channel || !channel.isTextBased()) return [];
-  const messages = await channel.messages.fetch({ limit, cache: false });
-  return [...messages.values()];
+  try {
+    return await withTimeout(
+      (async () => {
+        const channel = await client.channels.fetch(channelId, { cache: false });
+        if (!channel || !channel.isTextBased()) return [];
+        const messages = await channel.messages.fetch({ limit, cache: false });
+        return [...messages.values()];
+      })(),
+      10000,
+      []
+    );
+  } catch {
+    return [];
+  }
 }
 
 function tryParseJson(text) {
