@@ -589,12 +589,28 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
-client.once("ready", async () => {
+client.once("ready", () => {
   console.log(`Discord bot ready as ${client.user?.tag}`);
-  await registerCommands();
-  app.listen(port, () => {
-    console.log(`Bot API server listening on http://localhost:${port}`);
-  });
+  registerCommands().catch((error) => console.error("registerCommands failed:", String(error)));
 });
 
-client.login(token);
+app.listen(port, () => {
+  console.log(`Bot API server listening on http://localhost:${port}`);
+});
+
+async function loginWithRetry() {
+  let attempt = 0;
+  while (!client.isReady()) {
+    attempt++;
+    try {
+      await client.login(token);
+      console.log("Discord login OK");
+      return;
+    } catch (error) {
+      console.error(`Discord login failed (attempt ${attempt}):`, String(error).slice(0, 200));
+      await new Promise((resolve) => setTimeout(resolve, 30000));
+    }
+  }
+}
+
+loginWithRetry();
