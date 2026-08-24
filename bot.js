@@ -610,11 +610,15 @@ async function loginWithRetry() {
   while (!client.isReady()) {
     attempt++;
     try {
-      await client.login(token);
+      const result = await withTimeout(client.login(token), 20000, "timeout");
+      if (result === "timeout") throw new Error("login_timeout");
       console.log("Discord login OK");
       return;
     } catch (error) {
       console.error(`Discord login failed (attempt ${attempt}):`, String(error).slice(0, 200));
+      try {
+        client.destroy();
+      } catch {}
       await new Promise((resolve) => setTimeout(resolve, 30000));
     }
   }
