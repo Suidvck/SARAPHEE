@@ -57,21 +57,23 @@ const channels = {
 };
 
 let mongoClient = process.env.MONGODB_URI ? new MongoClient(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 }) : null;
-if (mongoClient) {
-  mongoClient
-    .connect()
-    .then(async () => {
-      console.log("MongoDB connected");
-      await loadCheerStateFromMongo();
-    })
-    .catch((error) => {
-      console.error("MongoDB connect failed:", String(error).slice(0, 200));
-      mongoClient = null;
-    });
+let mongoReady = false;
+if (mongoClient) connectMongo();
+
+async function connectMongo(attempt = 0) {
+  try {
+    await mongoClient.connect();
+    mongoReady = true;
+    console.log("MongoDB connected");
+    await loadCheerStateFromMongo();
+  } catch (error) {
+    console.error(`MongoDB connect failed (attempt ${attempt + 1}):`, String(error).slice(0, 200));
+    setTimeout(() => connectMongo(attempt + 1), 30000);
+  }
 }
 
 function getDb() {
-  return mongoClient?.db("saraphee") ?? null;
+  return mongoReady ? mongoClient.db("saraphee") : null;
 }
 
 app.use(cors());
