@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Client, GatewayIntentBits, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { MongoClient } from "mongodb";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CHEER_STATE_FILE = path.join(__dirname, "cheer-state.json");
@@ -25,6 +26,19 @@ function saveCheerState() {
     fs.writeFileSync(CHEER_STATE_FILE, JSON.stringify(cheerState, null, 2));
   } catch {
   }
+  mongoUpsert("state", { _id: "cheer", ...cheerState });
+}
+
+async function loadCheerStateFromMongo() {
+  const database = getDb();
+  if (!database) return;
+  try {
+    const doc = await database.collection("state").findOne({ _id: "cheer" });
+    if (doc && typeof doc.count === "number") {
+      cheerState = { count: doc.count, devices: Array.isArray(doc.devices) ? doc.devices : [] };
+      console.log(`Cheer state restored from MongoDB: ${cheerState.count}`);
+    }
+  } catch {}
 }
 
 loadCheerState();
@@ -41,6 +55,24 @@ const channels = {
   registrations: process.env.DISCORD_CHANNEL_REGISTRATIONS,
   scores: process.env.DISCORD_CHANNEL_SCORES,
 };
+
+let mongoClient = process.env.MONGODB_URI ? new MongoClient(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 }) : null;
+if (mongoClient) {
+  mongoClient
+    .connect()
+    .then(async () => {
+      console.log("MongoDB connected");
+      await loadCheerStateFromMongo();
+    })
+    .catch((error) => {
+      console.error("MongoDB connect failed:", String(error).slice(0, 200));
+      mongoClient = null;
+    });
+}
+
+function getDb() {
+  return mongoClient?.db("saraphee") ?? null;
+}
 
 app.use(cors());
 app.use(express.json());
@@ -209,6 +241,27 @@ async function registerCommands() {
   console.log(`Registered ${commands.length} slash command(s)`);
 }
 
+async function mongoUpsert(collection, doc) {
+  try {
+    const database = getDb();
+    if (!database) return;
+    await database.collection(collection).replaceOne({ _id: doc._id }, doc, { upsert: true });
+  } catch {}
+}
+
+async function mongoAll(collection, sort) {
+  try {
+    const database = getDb();
+    if (!database) return null;
+    let cursor = database.collection(collection).find({});
+    if (sort) cursor = cursor.sort(sort);
+    const docs = await cursor.toArray();
+    return docs.length ? docs : null;
+  } catch {
+    return null;
+  }
+}
+
 function friendlyError(error) {
   const msg = String(error);
   if (msg.includes("channel_id_not_set")) return "ยังไม่ได้ตั้งค่า channel ID ในไฟล์ .env (ต้องเติม DISCORD_CHANNEL_...)";
@@ -239,6 +292,7 @@ const COMMAND_HANDLERS = {
       } catch {
       }
     }
+    mongoUpsert("announcements", { _id: message.id, id: message.id, title, body: detail, pinned, createdAt: new Date().toISOString() });
     await interaction.editReply(`เพิ่มประกาศแล้ว: ${title}${pinned ? " (ปักหมุดแล้ว)" : urgent ? " (ปักหมุดไม่สำเร็จ ตรวจสอบสิทธิ์)" : ""}`);
   },
 
@@ -256,7 +310,7 @@ const COMMAND_HANDLERS = {
     if (vs) fields.push({ name: "คู่แข่ง", value: vs, inline: true });
     if (venue) fields.push({ name: "สนาม", value: venue, inline: true });
     const label = matchLabel(sport, category, vs);
-    await sendToChannel(channels.matches, {
+    const message = await sendToChannel(channels.matches, {
       embeds: [{
         title: label,
         color: 0x199c4a,
@@ -264,6 +318,7 @@ const COMMAND_HANDLERS = {
         timestamp: new Date().toISOString(),
       }],
     });
+    mongoUpsert("matches", { _id: message.id, id: message.id, sport, time, ...(category && { category }), ...(vs && { vs }), ...(venue && { venue }) });
     await interaction.editReply(`เพิ่มแมตช์แล้ว: ${label} • ${time} น.${venue ? ` • ${venue}` : ""}`);
   },
 
@@ -281,6 +336,7 @@ const COMMAND_HANDLERS = {
       timestamp: new Date().toISOString(),
     };
     await sendToChannel(channels.cheerWall, { content: JSON.stringify(note) });
+    mongoUpsert("cheerwall", { _id: note.id, ...note });
     await interaction.editReply(`ปักโพสต์อิตแล้ว: ${message}`);
   },
 
@@ -291,7 +347,7 @@ const COMMAND_HANDLERS = {
     const fields = [{ name: "ชื่อ", value: name, inline: true }];
     if (sport) fields.push({ name: "กีฬา", value: sport, inline: true });
     if (note) fields.push({ name: "หมายเหตุ", value: note, inline: true });
-    await sendToChannel(channels.roster, {
+    const message = await sendToChannel(channels.roster, {
       embeds: [{
         title: `${name}${sport ? ` — ${sport}` : ""}`,
         color: 0x199c4a,
@@ -299,6 +355,7 @@ const COMMAND_HANDLERS = {
         timestamp: new Date().toISOString(),
       }],
     });
+    mongoUpsert("roster", { _id: message.id, title: `${name}${sport ? ` — ${sport}` : ""}`, "ชื่อ": name, ...(sport && { "กีฬา": sport }), ...(note && { "หมายเหตุ": note }) });
     await interaction.editReply(`เพิ่มนักกีฬาแล้ว: ${name}${sport ? ` (${sport})` : ""}`);
   },
 
@@ -336,6 +393,7 @@ const COMMAND_HANDLERS = {
           timestamp: new Date().toISOString(),
         }],
       });
+      mongoUpsert("scores", { _id: "latest", updatedAt: new Date().toISOString(), ...Object.fromEntries(merged.map((f) => [f.name, f.value])) });
       await interaction.editReply(`อัปเดตคะแนนแล้ว แก้เฉพาะ: ${fields.map((f) => `${f.name} = ${f.value}`).join(", ")}`);
     } else {
       await sendToChannel(channels.scores, {
@@ -346,6 +404,7 @@ const COMMAND_HANDLERS = {
           timestamp: new Date().toISOString(),
         }],
       });
+      mongoUpsert("scores", { _id: "latest", updatedAt: new Date().toISOString(), ...Object.fromEntries(fields.map((f) => [f.name, f.value])) });
       await interaction.editReply("อัปเดตคะแนนแล้ว");
     }
   },
@@ -391,6 +450,14 @@ const COMMAND_HANDLERS = {
         ],
         timestamp: new Date().toISOString(),
       }],
+    });
+    mongoUpsert("registrations", {
+      _id: crypto.randomUUID(),
+      title: `${name}${gender ? ` (${gender})` : ""}`,
+      "กีฬา": sport,
+      "เพศ": gender || "-",
+      "ระดับชั้น": level || "-",
+      "ทีมสี": "Green",
     });
     await interaction.editReply(`เพิ่มใบสมัครแล้ว: ${name} — ${sport}`);
   },
@@ -461,6 +528,7 @@ client.on("interactionCreate", async (interaction) => {
         }],
       });
     }
+    mongoUpsert("scores", { _id: "latest", updatedAt: new Date().toISOString(), ...Object.fromEntries(fields.map((f) => [f.name, f.value])) });
     await interaction.reply({ content: "อัปเดตคะแนนจาก JSON แล้ว", ephemeral: true });
   } catch (error) {
     await interaction.reply({ content: `ไม่สำเร็จ: ${friendlyError(error)}`, ephemeral: true });
@@ -472,6 +540,7 @@ app.get("/api/health", (_, res) => {
     ok: true,
     guildId,
     ready: client.isReady(),
+    mongo: Boolean(getDb()),
     channels: Object.fromEntries(Object.entries(channels).map(([k, v]) => [k, Boolean(v)])),
   });
 });
@@ -496,6 +565,8 @@ app.post("/api/cheer", (req, res) => {
 
 app.get("/api/announcements", async (_, res) => {
   try {
+    const cached = await mongoAll("announcements", { createdAt: 1 });
+    if (cached) return res.json(cached);
     const messages = await getChannelMessages(channels.announcements, 20);
     const items = messages
       .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
@@ -506,6 +577,7 @@ app.get("/api/announcements", async (_, res) => {
         pinned: message.pinned,
         createdAt: message.createdAt,
       }));
+    for (const item of items) mongoUpsert("announcements", { _id: item.id, ...item });
     res.json(items);
   } catch (error) {
     res.status(500).json({ error: "failed_to_read_announcements", detail: String(error) });
@@ -514,11 +586,14 @@ app.get("/api/announcements", async (_, res) => {
 
 app.get("/api/cheer-wall", async (_, res) => {
   try {
+    const cached = await mongoAll("cheerwall", { timestamp: 1 });
+    if (cached) return res.json(cached);
     const messages = await getChannelMessages(channels.cheerWall, 100);
     const items = messages
       .map((message) => tryParseJson(message.content))
       .filter(Boolean)
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    for (const item of items) mongoUpsert("cheerwall", { _id: item.id ?? crypto.randomUUID(), ...item });
     res.json(items);
   } catch (error) {
     res.status(500).json({ error: "failed_to_read_cheer_wall", detail: String(error) });
@@ -527,6 +602,8 @@ app.get("/api/cheer-wall", async (_, res) => {
 
 app.get("/api/matches", async (_, res) => {
   try {
+    const cached = await mongoAll("matches");
+    if (cached) return res.json(cached);
     const messages = await getChannelMessages(channels.matches, 50);
     const items = messages
       .map((message) => {
@@ -534,6 +611,7 @@ app.get("/api/matches", async (_, res) => {
         return data ? { id: message.id, ...data } : null;
       })
       .filter(Boolean);
+    for (const item of items) mongoUpsert("matches", { _id: item.id, ...item });
     res.json(items);
   } catch (error) {
     res.status(500).json({ error: "failed_to_read_matches", detail: String(error) });
@@ -542,10 +620,11 @@ app.get("/api/matches", async (_, res) => {
 
 app.get("/api/roster", async (_, res) => {
   try {
+    const cached = await mongoAll("roster");
+    if (cached) return res.json(cached);
     const messages = await getChannelMessages(channels.roster, 100);
-    const items = messages
-      .map((message) => parseMessageData(message))
-      .filter(Boolean);
+    const items = messages.map((message) => parseMessageData(message)).filter(Boolean);
+    for (const item of items) mongoUpsert("roster", { _id: item._id ?? crypto.randomUUID(), ...item });
     res.json(items);
   } catch (error) {
     res.status(500).json({ error: "failed_to_read_roster", detail: String(error) });
@@ -554,11 +633,25 @@ app.get("/api/roster", async (_, res) => {
 
 app.get("/api/scores", async (_, res) => {
   try {
+    const database = getDb();
+    if (database) {
+      const doc = await database.collection("scores").findOne({ _id: "latest" }).catch(() => null);
+      if (doc) {
+        const { _id, updatedAt, ...data } = doc;
+        return res.json(data);
+      }
+    }
     const messages = await getChannelMessages(channels.scores, 20);
     const items = messages
       .map((message) => ({ createdAt: message.createdTimestamp, data: parseMessageData(message) }))
       .filter((m) => m.data)
       .sort((a, b) => b.createdAt - a.createdAt);
+    if (items.length > 0 && database) {
+      await database
+        .collection("scores")
+        .replaceOne({ _id: "latest" }, { ...items[0].data, _id: "latest", updatedAt: new Date().toISOString() }, { upsert: true })
+        .catch(() => {});
+    }
     res.json(items.length > 0 ? items[0].data : {});
   } catch (error) {
     res.status(500).json({ error: "failed_to_read_scores", detail: String(error) });
@@ -570,6 +663,7 @@ app.post("/api/cheer-wall", async (req, res) => {
     const note = req.body;
     if (!note || !note.message) return res.status(400).json({ error: "missing_message" });
     await sendToChannel(channels.cheerWall, { content: JSON.stringify(note) });
+    mongoUpsert("cheerwall", { _id: note.id ?? crypto.randomUUID(), ...note });
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ error: "failed_to_post_cheer", detail: String(error) });
@@ -594,6 +688,14 @@ app.post("/api/register", async (req, res) => {
         ],
         timestamp: new Date().toISOString(),
       }],
+    });
+    mongoUpsert("registrations", {
+      _id: crypto.randomUUID(),
+      title: `${name}${gender ? ` (${gender})` : ""}`,
+      "กีฬา": sportList.join(", "),
+      "เพศ": gender || "-",
+      "ระดับชั้น": level || "-",
+      "ทีมสี": "Green",
     });
     res.json({ ok: true });
   } catch (error) {
