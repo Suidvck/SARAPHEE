@@ -1602,9 +1602,19 @@ client.on("interactionCreate", async (interaction) => {
 
   let deleted = false;
   let err = null;
+  let discordRemoved = false;
   try {
     await target.fn(id);
     deleted = true;
+
+    // ต้องลบข้อความใน Discord ด้วย ไม่งั้น syncChannelsOnStartup
+    // จะดึงกลับมาใส่ตารางตอนบอท restart
+    try {
+      await interaction.message.delete();
+      discordRemoved = true;
+    } catch (e) {
+      console.warn(`Could not delete Discord message (${id}):`, e.message);
+    }
   } catch (e) {
     console.error(`Button delete error (${id}):`, e);
     err = e;
@@ -1634,6 +1644,16 @@ client.on("interactionCreate", async (interaction) => {
         ],
   };
 
+  // ถ้าลบข้อความ Discord ทิ้งไปแล้ว ไม่ต้องพยายามแก้ข้อความที่ไม่มีอยู่แล้ว
+  if (discordRemoved) {
+    return interaction.reply({
+      content: deleted
+        ? `🗑️ ลบ${target.label} ID \`${id}\` ออกจากเว็บและดิสคอร์ดเรียบร้อยแล้ว`
+        : `❌ ลบไม่สำเร็จ: ${err?.message ?? "ไม่ทราบสาเหตุ"}`,
+      ephemeral: true,
+    });
+  }
+
   try {
     await interaction.update(patch);
   } catch {
@@ -1648,7 +1668,8 @@ client.on("interactionCreate", async (interaction) => {
 
   await interaction.followUp({
     content: deleted
-      ? `🗑️ ลบ${target.label} ID \`${id}\` ออกจากเว็บเรียบร้อยแล้ว`
+      ? `🗑️ ลบ${target.label} ID \`${id}\` ออกจากเว็บเรียบร้อยแล้ว` +
+        (discordRemoved ? "" : "\n⚠️ ลบข้อความในดิสคอร์ดไม่สำเร็จ ข้อมูลอาจกลับมาตอนบอท restart")
       : `❌ ลบไม่สำเร็จ: ${err?.message ?? "ไม่ทราบสาเหตุ"}`,
     ephemeral: true,
   });
