@@ -1594,26 +1594,64 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  // หมายเหตุสำคัญ: ปุ่มห้าม deferReply เพราะ update() จะพังด้วย
+  // "The reply to this interaction has already been sent or deferred"
+  // คำสั่งลบเป็น query เดียวกับ Postgres ใช้เวลาไม่กี่มิลลิวินาที
+  // จึงทำงานก่อนตอบ interaction ได้อย่างปลอดภัย (Discord ให้เวลา 3 วินาที)
+  const original = interaction.message.embeds[0]?.toJSON?.();
 
+  let deleted = false;
+  let err = null;
   try {
     await target.fn(id);
-    // ปิดปุ่มทิ้ง และแก้ embed ให้เห็นว่าถูกลบแล้ว
-    await interaction.update({
-      embeds: [
-        {
-          ...(interaction.message.embeds[0]?.toJSON?.() ?? {}),
-          color: 0x666666,
-          footer: { text: `🗑️ ลบ${target.label}ออกจากเว็บแล้ว • ID: \`${id}\`` },
-        },
-      ],
-      components: [],
-    });
-    await interaction.editReply(`🗑️ ลบ${target.label} ID \`${id}\` ออกจากเว็บเรียบร้อยแล้ว`);
-  } catch (err) {
-    console.error(`Button delete error (${id}):`, err);
-    await interaction.editReply(`❌ ลบไม่สำเร็จ: ${err.message}`);
+    deleted = true;
+  } catch (e) {
+    console.error(`Button delete error (${id}):`, e);
+    err = e;
   }
+
+  const patch = {
+    embeds: [
+      {
+        ...(original ?? {}),
+        color: deleted ? 0x666666 : 0xd63031,
+        footer: {
+          text: deleted
+            ? `🗑️ ลบ${target.label}ออกจากเว็บแล้ว • ID: \`${id}\``
+            : `⚠️ ลบไม่สำเร็จ • ID: \`${id}\``,
+        },
+      },
+    ],
+    components: deleted
+      ? []
+      : [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`del:${parts[1]}:${id}`)
+              .setLabel(`🗑️ ลบ${target.label}อีกครั้ง`)
+              .setStyle(ButtonStyle.Danger)
+          ),
+        ],
+  };
+
+  try {
+    await interaction.update(patch);
+  } catch {
+    // ปุ่มหมดอายุ (เกิน 15 นาที) — แจ้งผลล้วน ๆ แทน
+    return interaction.reply({
+      content: deleted
+        ? `🗑️ ลบ${target.label} ID \`${id}\` ออกจากเว็บเรียบร้อยแล้ว (ปุ่มหมดอายุ)`
+        : `❌ ลบไม่สำเร็จ: ${err?.message ?? "ไม่ทราบสาเหตุ"}`,
+      ephemeral: true,
+    });
+  }
+
+  await interaction.followUp({
+    content: deleted
+      ? `🗑️ ลบ${target.label} ID \`${id}\` ออกจากเว็บเรียบร้อยแล้ว`
+      : `❌ ลบไม่สำเร็จ: ${err?.message ?? "ไม่ทราบสาเหตุ"}`,
+    ephemeral: true,
+  });
 });
 
 // ==========================================
