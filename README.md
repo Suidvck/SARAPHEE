@@ -2,124 +2,132 @@
 
 เว็บไซต์กีฬาสีคณะสารภี — หน้าเว็บเดียว (single-page) ที่รวมทุกอย่างของทีมสีเขียวไว้ในที่เดียว: ประกาศ ตารางแข่ง อุณหภูมิสนาม เชียร์วอลล์ ฟอร์มสมัครนักกีฬา สรุปคะแนน และเพลงเชียร์
 
-ข้อมูลทุกอย่างบนหน้าเว็บแก้ไขได้จากไฟล์ JSON โดยไม่ต้องแตะโค้ด
+---
 
-## โครงสร้าง
+## สถาปัตยกรรมระบบ (Architecture)
+
+- 🌐 **Backend:** รัน Express API บน **Render.com** (มี `render.yaml` พร้อม Deploy ทันที)
+- 🗄️ **Database:** ใช้ **Supabase (PostgreSQL)** เป็นฐานข้อมูลหลักสำหรับข้อมูลทุกอย่าง (ไม่ใช้ Discord เป็นฐานข้อมูล)
+- 🤖 **Discord Bot:** ใช้สำหรับ **จัดการและตั้งค่าข้อมูล (Config Data)** ใน Supabase ผ่าน Slash Commands พร้อมส่งแจ้งเตือนเข้าเซิร์ฟเวอร์ Discord
+- 💻 **Frontend:** React 19 + Vite + Tailwind CSS (Deploy บน GitHub Pages หรือ Vercel ได้ทันที)
+
+---
+
+## โครงสร้างโปรเจกต์
 
 ```
 SARAPHEE/
 ├── src/
-│   ├── App.tsx              โค้ด React หลัก (ทุก section ของเว็บ)
+│   ├── App.tsx              โค้ด React หลัก (ทุก section เชื่อมต่อ API อัตโนมัติ)
 │   ├── data/
-│   │   ├── config.json      ข้อมูลงาน ชนิดกีฬา เพลงเชียร์ คะแนน
+│   │   ├── config.json      ข้อมูลงาน ชนิดกีฬา เพลงเชียร์ คะแนนสำรอง
 │   │   └── texts.json       ข้อความทั้งหมดที่แสดงบนหน้าเว็บ
 │   ├── components/icons.tsx ไอคอน SVG
 │   ├── utils/cn.ts          ยูทิลิตี้รวม class
 │   └── main.tsx / index.css
-├── bot.js                   Backend: Express API + Discord bot
+├── bot.js                   Backend: Express API + Supabase Client + Discord Bot
+├── supabase_schema.sql      SQL Schema สำหรับรันใน Supabase (สร้างตารางครบใน 1 คลิก)
+├── render.yaml              ไฟล์ Render Blueprint สำหรับ Deploy Backend อัตโนมัติ
+├── .env.example             ตัวอย่างการตั้งค่า Environment Variables
+├── DISCORD_SETUP.md         คู่มือการตั้งค่า Supabase, Render.com และ Discord Bot แบบละเอียด
 ├── index.html
 ├── vite.config.ts
 ├── tsconfig.json
 └── package.json
 ```
 
-## เริ่มใช้งาน
+---
 
-ติดตั้ง dependencies:
+## เริ่มต้นใช้งาน
 
+### 1. ตั้งค่าฐานข้อมูล Supabase
+1. เข้าไปที่ [Supabase](https://supabase.com) แล้วสร้างโปรเจกต์ใหม่
+2. ไปที่เมนู **SQL Editor** -> นำโค้ดจาก [`supabase_schema.sql`](supabase_schema.sql) ไปวางแล้วกด **Run**
+3. ไปที่ **Project Settings -> API** เพื่อคัดลอก `Project URL` และ `service_role secret key` (หรือ `anon key`)
+
+### 2. ตั้งค่าไฟล์ `.env`
+คัดลอก `.env.example` เป็น `.env` แล้วใส่ค่าจริง:
+```env
+PORT=3001
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-supabase-key
+DISCORD_BOT_TOKEN=your-discord-bot-token
+DISCORD_GUILD_ID=your-server-id
+```
+
+### 3. รัน Backend ในเครื่อง (Local)
 ```bash
 npm install
-```
-
-### 1. ไฟล์ `.env`
-
-คัดลอกค่าใน `DISCORD_SETUP.md` มาสร้าง `.env` ที่ root ของโปรเจกต์ แล้วเติมค่า:
-
-```env
-DISCORD_BOT_TOKEN=...
-DISCORD_GUILD_ID=...
-DISCORD_CHANNEL_ANNOUNCEMENTS=...
-DISCORD_CHANNEL_CHEER_WALL=...
-DISCORD_CHANNEL_MATCHES=...
-DISCORD_CHANNEL_ROSTER=...
-DISCORD_CHANNEL_REGISTRATIONS=...
-DISCORD_CHANNEL_SCORES=...
-```
-
-ดูขั้นตอนการสร้าง bot และห้อง Discord อย่างละเอียดได้ใน [DISCORD_SETUP.md](DISCORD_SETUP.md)
-
-### 2. รัน Backend (ต้องใช้ในการดึงข้อมูลจาก Discord และตัวนับเชียร์)
-
-```bash
 node bot.js
+# หรือ
+npm run start
 ```
+Server จะเปิดที่ `http://localhost:3001` (ตรวจสอบสถานะได้ที่ `http://localhost:3001/api/health`)
 
-Server จะเปิดที่ `http://localhost:3001`
-
-### 3. รันเว็บ (Development)
-
+### 4. รัน Frontend (Development)
 ```bash
 npm run dev
 ```
 
-### Build เวอร์ชันใช้งานจริง
-
+### 5. Build เว็บไซต์สำหรับขึ้นจริง
 ```bash
 npm run build
 ```
 
-## การแก้ไขข้อมูลผ่าน JSON### `src/data/config.json`
+---
 
-| คีย์ | ไว้แก้ |
+## การ Deploy ใช้งานจริง (ฟรี 100%)
+
+### 1. Backend บน Render.com
+1. อัปโหลดโค้ดขึ้น GitHub
+2. เข้าไปที่ [Render.com](https://render.com) -> **New +** -> **Web Service** -> เลือก Repository นี้
+3. หรือใช้ **Blueprint** ผ่านไฟล์ `render.yaml`
+4. ตั้งค่า Environment Variables:
+   - `SUPABASE_URL`
+   - `SUPABASE_KEY`
+   - `DISCORD_BOT_TOKEN`
+   - `DISCORD_GUILD_ID`
+5. เมื่อ Deploy เสร็จจะได้ URL เช่น `https://saraphee-backend.onrender.com`
+
+### 2. Frontend บน GitHub Pages
+1. นำ URL ของ Render Backend ไปใส่ใน `src/data/config.json`:
+   ```json
+   "api": {
+     "baseUrl": "https://saraphee-backend.onrender.com"
+   }
+   ```
+   (หรือใส่ `VITE_API_BASE_URL` ใน GitHub Secrets)
+2. Push โค้ดขึ้น GitHub -> ไปที่แท็บ **Settings -> Pages** -> เลือก Source เป็น **GitHub Actions**
+3. GitHub Actions จะ build และ deploy ให้โดยอัตโนมัติ
+
+---
+
+## คำสั่ง Discord Slash Commands (Config Data ใน Supabase)
+
+ทีมงานสามารถจัดการข้อมูลทั้งหมดใน Supabase ได้ผ่าน Discord โดยตรง:
+
+| คำสั่ง | การทำงาน |
 |---|---|
-| `event` | ชื่องาน ชื่อทีม วันที่ สถานที่ |
-| `sports` | รายชื่อกีฬาที่เปิดให้สมัคร |
-| `songs` | ชื่อเพลง เนื้อร้อง และท่อนฮุกของแต่ละเพลงเชียร์ |
-| `score` | เหรียญทอง/เงิน/ทองแดง อันดับ และจำนวนสีทั้งหมด |
+| `/announce-add` | เพิ่มประกาศใหม่ลง Supabase (เลือกปักหมุดด่วนได้) |
+| `/announce-list` | ดูประกาศล่าสุดพร้อม ID ใน Supabase |
+| `/announce-delete` | ลบประกาศออกจาก Supabase ตาม ID |
+| `/announce-pin` | ปักหมุด / ปลดหมุดประกาศ |
+| `/match-add` | เพิ่มแมตช์การแข่งขันลงตารางแข่งใน Supabase |
+| `/match-list` | ดูตารางแข่งทั้งหมดจาก Supabase |
+| `/match-delete` | ลบแมตช์แข่งออกจาก Supabase ตาม ID |
+| `/score-update` | อัปเดตเหรียญ/อันดับ/คะแนนรวมใน Supabase |
+| `/score-edit` | แก้ไขข้อมูลคะแนนทั้งหมดผ่านหน้าต่าง JSON สะดวกรวดเร็ว |
+| `/score-view` | ดูคะแนนปัจจุบันจาก Supabase |
+| `/roster-add` | เพิ่มนักกีฬาเข้ารายชื่อใน Supabase |
+| `/roster-list` | ดูรายชื่อนักกีฬาจาก Supabase |
+| `/roster-delete` | ลบนักกีฬาตาม ID |
+| `/register-list` | ดูใบสมัครนักกีฬาที่ส่งมาจากหน้าเว็บ |
+| `/register-status` | ปรับสถานะใบสมัคร (อนุมัติ / ปฏิเสธ) |
+| `/cheer-post` | ปักโพสต์อิตลงเชียร์วอลล์ใน Supabase |
+| `/cheer-list` | ดูข้อความโพสต์อิตล่าสุด |
+| `/cheer-delete` | ลบโพสต์อิตตาม ID |
+| `/cheer-set` | ตั้งค่าตัวเลขตัวนับพลังเชียร์ |
+| `/cheer-reset` | รีเซ็ตพลังเชียร์และประวัติอุปกรณ์ |
+| `/db-status` | ตรวจสอบสถานะการเชื่อมต่อ Supabase และจำนวนข้อมูลแต่ละตาราง |
 
-### `src/data/texts.json`
-
-ข้อความทั้งหมดที่แสดงบนหน้าเว็บ เช่น หัวข้อ section ปุ่ม ป้ายสถานะ placeholder แบ่งตามส่วน (`nav`, `hero`, `schedule`, `weather`, `cheerWall`, `register`, `score`, `cheerHub`, `footer`)
-
-## ฟีเจอร์ของเว็บ
-
-- **นับถอยหลัง** ไปจนถึงวันงาน
-- **ประกาศ** ดึงจากห้อง Discord (แสดงแบบสลับได้ ถ้า pin จะขึ้นสีแดง urgent)
-- **ตารางแข่ง** ดึงจาก Discord แสดงสถานะ LIVE / จบแล้ว / ถัดไป / รอแข่ง อัตโนมัติ
-- **อุณหภูมิสนาม** ดึงจาก Open-Meteo พร้อมคำแนะนำ
-- **เชียร์วอลล์** เขียนโพสต์อิต ปักตำแหน่งบนบอร์ด แล้วส่งเข้า Discord
-- **สมัครนักกีฬา** เลือกเพศ ระดับชั้น และกีฬาได้หลายอย่าง
-- **สรุปคะแนน** แสดงเหรียญและอันดับ (อ่านจาก `config.json`)
-- **เพลงเชียร์ + ตัวนับพลังเชียร์** กดเชียร์ได้เครื่องละครั้ง ตัวนับแชร์ข้ามเครื่องผ่าน backend
-
-## Discord Slash Commands
-
-คำสั่งทั้งหมดต้องมีสิทธิ์ **Manage Messages**:
-
-- `/announce-add` — เพิ่มประกาศ
-- `/match-add` — เพิ่มแมตช์การแข่งขัน
-- `/cheer-post` — ปักโพสต์อิต
-- `/roster-add` — เพิ่มรายชื่อนักกีฬา
-- `/score-update` — อัปเดตคะแนนเฉพาะ field ที่ระบุ
-- `/score-edit` — แก้คะแนนทั้งชุดผ่าน modal (JSON)
-- `/register-add` — เพิ่มใบสมัครด้วยมือ
-
-## การ Deploy (ฟรี)
-
-### Frontend — GitHub Pages
-
-โปรเจกต์มีไฟล์ `.github/workflows/deploy.yml` ไว้แล้ว โดยจะ build และ deploy อัตโนมัติทุกครั้งที่ push ขึ้น `main`
-
-1. Push โค้ดขึ้น GitHub
-2. ที่หน้า repo → **Settings → Pages** → ตั้ง Source เป็น **GitHub Actions**
-3. รอ workflow รันเสร็จ เว็บจะขึ้นที่ `https://<username>.github.io/SARAPHEE/`
-
-### Backend — Render
-
-1. เข้า https://render.com → **New → Web Service** → เชื่อม repo นี้ (หรือใช้ **Blueprint** จาก `render.yaml`)
-2. เลือก plan **Free**
-3. ตั้งค่า Environment Variables ทั้งหมดจาก `.env` (Discord token, guild ID, channel IDs)
-4. Deploy เสร็จจะได้ URL เช่น `https://saraphee-bot.onrender.com`
-5. เอา URL นั้นไปใส่ใน `src/data/config.json` → คีย์ `api.baseUrl` แล้ว build/deploy ใหม่
-
-**หมายเหตุ:** Free plan ของ Render จะหลับเมื่อไม่มี request ~15 นาที (เปิดเองเมื่อมี request) และไฟล์ `cheer-state.json` จะถูกล้างเมื่อ redeploy/restart ทำให้ตัวนับเชียร์อาจรีเซ็ต
+อ่านรายละเอียดการตั้งค่า Discord และบอททั้งหมดได้ที่ [DISCORD_SETUP.md](DISCORD_SETUP.md)

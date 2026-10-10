@@ -1,94 +1,138 @@
-# วิธีเชื่อม Discord กับเว็บกีฬาสีสารภี
+# วิธีเชื่อมต่อ Render.com + Supabase + Discord Bot (ระบบสารภี)
 
-เว็บนี้ใช้ Discord เป็น "backend" โดยไม่มีฐานข้อมูล แบ่งการเชื่อมเป็น **2 ทาง**:
+ระบบนี้เปลี่ยนสถาปัตยกรรมใหม่ทั้งหมด:
+- 🌐 **Backend:** รัน Express API บน **Render.com** (ฟรี และเปิดออนไลน์ตลอด)
+- 🗄️ **Database:** ใช้ **Supabase (PostgreSQL)** เป็นฐานข้อมูลหลักสำหรับทุกข้อมูล (ไม่ใช่ Discord)
+- 🤖 **Discord Bot:** ใช้สำหรับ **ตั้งค่า/จัดการข้อมูลใน Supabase (Config Data)** ผ่านคำสั่ง Slash Commands และส่งแจ้งเตือนเข้าห้อง Discord
 
 ```
-                    ┌─────────────────────────────────────┐
-                    │            Discord Server            │
-                    │  #announcements  #cheer-wall         │
-                    │  #matches        #roster             │
-                    │  #registrations                      │
-                    └───────▲───────────────────┬──────────┘
-        (2) เขียนผ่าน Webhook │                   │ (1) อ่านผ่าน Bot API
-                              │                   │
-         ┌────────────────────┴───┐      ┌────────▼───────────┐
-         │   เว็บ (GitHub Pages)   │◄─────│  bot.js (Node.js)  │
-         │   React + Vite          │ JSON │  Express + discord │
-         └─────────────────────────┘      └────────────────────┘
+       ┌───────────────────────────────┐
+       │   Discord Slash Commands      │
+       │   (/announce-add, /score...)  │
+       └──────────────┬────────────────┘
+                      │
+                      ▼
+   ┌─────────────────────────────────────┐
+   │         Backend บน Render.com       │
+   │           (Node.js / Express)       │
+   └──────▲───────────────────────┬──────┘
+          │ REST API              │ Read/Write
+          │ (JSON)                ▼
+┌─────────┴─────────┐     ┌───────────────────────┐
+│ เว็บไซต์ (React)   │     │  Supabase Database    │
+│  GitHub Pages     │     │ (PostgreSQL Tables)   │
+└───────────────────┘     └───────────────────────┘
 ```
-
-- **ทางที่ 1 — อ่านข้อมูล (Bot API):** ประกาศ / โพสต์อิต / ตารางแข่ง / รายชื่อ → `bot.js` อ่านข้อความในห้องแล้วส่ง JSON ให้เว็บ
-- **ทางที่ 2 — เขียนข้อมูล (Webhook):** ฟอร์มสมัคร + การปักโพสต์อิต → เว็บยิงตรงเข้า Discord Webhook (ไม่ต้องมี server)
-
-> ถ้าต้องการแค่ "ส่งข้อมูลเข้า Discord" (สมัคร/เชียร์) ทำแค่ **ทางที่ 2** ก็พอ — ไม่ต้องรัน bot.js เลย
 
 ---
 
-## ทางที่ 2 (ง่ายสุด) — เชื่อมด้วย Webhook
+## ขั้นตอนที่ 1: ตั้งค่า Supabase (Database)
 
-ใช้ได้ทันทีบน GitHub Pages โดยไม่ต้องมีเซิร์ฟเวอร์
-
-1. เปิด Discord → คลิกขวาห้อง `#cheer-wall` → **Edit Channel** → **Integrations** → **Webhooks** → **New Webhook**
-2. ตั้งชื่อ เช่น `Cheer Wall` แล้วกด **Copy Webhook URL**
-3. ทำแบบเดียวกันกับห้อง `#registrations` เพื่อได้อีก 1 URL
-4. เปิดไฟล์ `src/App.tsx` แล้ววางทับ 2 บรรทัดนี้ (อยู่ใกล้ต้นไฟล์):
-
-```ts
-const CHEER_WEBHOOK_URL = "https://discord.com/api/webhooks/xxxx/yyyy";
-const REGISTER_WEBHOOK_URL = "https://discord.com/api/webhooks/aaaa/bbbb";
-```
-
-5. build แล้ว deploy — พอมีคนกด "ปักลงบอร์ด" หรือ "ส่งใบสมัคร" ข้อความจะเด้งเข้าห้อง Discord ทันที
-
-**อนุมัติใบสมัคร:** ทีมงานกด reaction ✅ / ❌ ใต้ข้อความในห้อง `#registrations` ได้เลย
+1. เข้าเว็บ [https://supabase.com](https://supabase.com) แล้วสร้างโปรเจกต์ใหม่ (ฟรี)
+2. เมื่อโปรเจกต์พร้อม ให้ไปที่เมนู **SQL Editor** ด้านซ้าย
+3. เปิดไฟล์ [`supabase_schema.sql`](supabase_schema.sql) ในโปรเจกต์นี้ คัดลอกโค้ดทั้งหมดแล้วนำไปวางใน SQL Editor แล้วกด **Run**
+   - จะสร้างตาราง: `announcements`, `matches`, `cheer_wall`, `scores`, `registrations`, `roster`, `cheer_counter`, `cheer_devices` พร้อมตั้งค่านโยบายความปลอดภัยให้เสร็จสรรพ
+4. ไปที่เมนู **Project Settings** (รูปฟันเฟือง) -> **API**:
+   - คัดลอก **Project URL** (เช่น `https://xyzcompany.supabase.co`) -> คือ `SUPABASE_URL`
+   - คัดลอก **service_role secret key** (หรือ `anon public key`) -> คือ `SUPABASE_KEY`
 
 ---
 
-## ทางที่ 1 — เชื่อมด้วย Bot API (ให้เว็บอ่านข้อมูลกลับมาแสดง)
+## ขั้นตอนที่ 2: ตั้งค่า Discord Bot
 
-จำเป็นเมื่ออยากให้ประกาศ/ตารางแข่ง/โพสต์อิต "โหลดจาก Discord" มาแสดงบนเว็บ
+1. ไปที่ [Discord Developer Portal](https://discord.com/developers/applications) -> กด **New Application**
+2. ไปที่แท็บ **Bot**:
+   - กด **Reset Token** -> คัดลอกโทเคนเก็บไว้ -> คือ `DISCORD_BOT_TOKEN`
+   - เปิด **MESSAGE CONTENT INTENT** ให้เป็น **ON**
+3. ไปที่แท็บ **OAuth2 -> URL Generator**:
+   - ใน Scopes ติ๊ก: `bot` และ `applications.commands`
+   - ใน Bot Permissions ติ๊ก: `Send Messages`, `Embed Links`, `Manage Messages`, `Read Message History`
+   - คัดลอก URL ด้านล่างแล้วเปิดในเบราว์เซอร์เพื่อเชิญบอทเข้า Discord Server ของคุณ
+4. เปิด Discord แล้วคลิกขวาที่ชื่อเซิร์ฟเวอร์ -> **Copy Server ID** -> คือ `DISCORD_GUILD_ID`
 
-### 1) สร้างบอท
-1. ไปที่ https://discord.com/developers/applications → **New Application**
-2. เมนู **Bot** → **Reset Token** → คัดลอกโทเคน (เก็บเป็นความลับ)
-3. ในหน้า Bot เปิดสวิตช์ **MESSAGE CONTENT INTENT** ให้ ON
-4. เมนู **OAuth2 → URL Generator** → ติ๊ก `bot` + สิทธิ์ `Read Messages/View Channels` และ `Read Message History` → เปิดลิงก์ที่ได้เพื่อเชิญบอทเข้าเซิร์ฟเวอร์
-
-### 2) เอา ID ต่างๆ
-- เปิด Discord → **User Settings → Advanced → Developer Mode** = ON
-- คลิกขวา **ชื่อเซิร์ฟเวอร์** → Copy Server ID
-- คลิกขวาแต่ละ **ห้อง** → Copy Channel ID
-
-### 3) ตั้งค่าและรัน bot.js
-```bash
-cp .env.example .env      # แล้วเติมค่า token / id ต่างๆ
-npm install express cors discord.js dotenv
-node bot.js
-```
-เปิด `http://localhost:3001/api/health` ควรเห็น `{ "ok": true, "ready": true }`
-
-Endpoint ที่ได้:
-| URL | คืนค่า |
-|-----|--------|
-| `/api/announcements` | ประกาศจากห้อง #announcements |
-| `/api/cheer-wall` | โพสต์อิตทั้งหมด (อ่าน JSON ในข้อความ) |
-| `/api/matches` | ตารางแข่ง |
-| `/api/roster` | รายชื่อนักกีฬา |
-
-### 4) ให้เว็บเรียก API
-เว็บ (GitHub Pages) กับ bot ต้องอยู่คนละที่ ให้ deploy bot ขึ้นโฮสต์ที่รัน Node ได้ (Render / Railway / Fly.io / VPS) แล้วนำ URL สาธารณะมาตั้งเป็นฐานของ API เช่น `https://sarapee-bot.onrender.com`
-
-จากนั้นในเว็บให้ `fetch` ข้อมูลจริงแทน seed เช่น:
-```ts
-const API = "https://sarapee-bot.onrender.com";
-const res = await fetch(`${API}/api/announcements`);
-const data = await res.json();
-```
-
-> **สำคัญ:** อย่านำ BOT TOKEN ใส่ในโค้ดฝั่งเว็บเด็ดขาด โทเคนต้องอยู่ใน `.env` ของ bot server เท่านั้น เพราะโค้ดฝั่งเว็บทุกคนเปิดดูได้
+*(ตัวเลือกเพิ่มเติม: หากต้องการให้บอทแจ้งเตือนเข้าห้องไหน ให้คลิกขวาห้องนั้นแล้วก๊อปปี้ Channel ID ใส่ในตัวแปร `DISCORD_CHANNEL_...`)*
 
 ---
 
-## สรุปสั้นๆ
-- อยากส่งข้อมูล "เข้า" Discord อย่างเดียว → ใช้ **Webhook** (ทางที่ 2) พอ ง่ายและฟรี
-- อยากให้เว็บ "ดึงข้อมูลกลับ" มาแสดง → ต้องรัน **bot.js** (ทางที่ 1) บนโฮสต์ Node
+## ขั้นตอนที่ 3: Deploy Backend ขึ้น Render.com
+
+1. นำโค้ดโปรเจกต์นี้ขึ้น GitHub Repository ของคุณ
+2. เข้า [https://render.com](https://render.com) แล้วกด **New +** -> **Web Service**
+3. เลือก Repository ของคุณ
+4. ตั้งค่าดังนี้:
+   - **Name:** `saraphee-backend` (หรือชื่อที่ต้องการ)
+   - **Runtime:** `Node`
+   - **Build Command:** `npm install`
+   - **Start Command:** `node bot.js`
+   - **Plan:** `Free`
+5. ในส่วน **Environment Variables** ให้เพิ่มตัวแปรเหล่านี้:
+   | Key | Value ตัวอย่าง | คำอธิบาย |
+   |---|---|---|
+   | `SUPABASE_URL` | `https://xxxx.supabase.co` | URL ของ Supabase |
+   | `SUPABASE_KEY` | `eyJhbGciOi...` | service_role key หรือ anon key |
+   | `DISCORD_BOT_TOKEN` | `MTI...` | Bot Token จาก Discord |
+   | `DISCORD_GUILD_ID` | `123456789012345678` | ID เซิร์ฟเวอร์ Discord |
+   | `PORT` | `3001` | Render จะจัดการให้อัตโนมัติ |
+6. กด **Create Web Service**
+   - เมื่อ Deploy เสร็จ คุณจะได้ URL สาธารณะ เช่น: `https://saraphee-backend.onrender.com`
+   - ทดสอบเปิด `https://saraphee-backend.onrender.com/api/health` ในเบราว์เซอร์ จะเห็นสถานะ `ok: true`, `supabase_connected: true`
+
+---
+
+## ขั้นตอนที่ 4: เชื่อมเว็บเข้ากับ Render Backend
+
+1. เปิดไฟล์ `src/data/config.json`:
+   ```json
+   "api": {
+     "baseUrl": "https://saraphee-backend.onrender.com"
+   }
+   ```
+   หรือตั้งค่าตัวแปรใน `.env` ตอน build:
+   ```env
+   VITE_API_BASE_URL=https://saraphee-backend.onrender.com
+   ```
+2. สั่ง build เว็บ:
+   ```bash
+   npm run build
+   ```
+
+---
+
+## 🛠️ รายการคำสั่ง Discord สำหรับจัดการข้อมูลใน Supabase (Config Data)
+
+บอทมีคำสั่ง Slash Commands ครบวงจรสำหรับจัดการข้อมูลทุกอย่างใน Supabase:
+
+### 📢 จัดการประกาศ (Announcements)
+- `/announce-add title detail [urgent]` — เพิ่มประกาศใหม่ลง Supabase (เลือกได้ว่าปักหมุดด่วนหรือไม่)
+- `/announce-list` — ดูรายการประกาศล่าสุด พร้อม ID
+- `/announce-delete id` — ลบประกาศออกจาก Supabase
+- `/announce-pin id urgent` — ปักหมุด / ปลดหมุดประกาศ
+
+### 🏆 จัดการตารางแข่ง (Matches)
+- `/match-add sport time [category] [vs] [venue]` — เพิ่มแมตช์ลงตารางแข่งใน Supabase
+- `/match-list` — ดูรายการแมตช์แข่งขันทั้งหมด พร้อม ID
+- `/match-delete id` — ลบแมตช์ออกจาก Supabase
+
+### 📊 จัดการคะแนน (Scores)
+- `/score-update [gold] [silver] [bronze] [total] [goal] [rank] [colors] [cheer]` — แก้ไขคะแนนเฉพาะช่องที่ต้องการ
+- `/score-edit` — เปิดหน้าต่าง Modal แก้ไขคะแนนทั้งหมดผ่าน JSON สะดวกและรวดเร็ว
+- `/score-view` — ดูคะแนนสรุปปัจจุบันจาก Supabase
+
+### 🏃 จัดการรายชื่อนักกีฬา (Roster)
+- `/roster-add name [sport] [note]` — เพิ่มนักกีฬาเข้าทำเนียบ
+- `/roster-list [sport]` — ดูรายชื่อนักกีฬา
+- `/roster-delete id` — ลบนักกีฬา
+
+### 📋 จัดการใบสมัคร (Registrations)
+- `/register-list` — ดูใบสมัครที่ส่งมาจากหน้าเว็บ
+- `/register-status id status` — อนุมัติ (`approved`) หรือปฏิเสธ (`rejected`) ใบสมัคร
+
+### 📌 จัดการเชียร์วอลล์ (Cheer Wall)
+- `/cheer-post message [color]` — แปะโพสต์อิตลงเชียร์วอลล์
+- `/cheer-list` — ดูรายการโพสต์อิต
+- `/cheer-delete id` — ลบโพสต์อิตที่ไม่เหมาะสม
+
+### 📣 จัดการพลังเชียร์ & สถานะระบบ
+- `/cheer-set count` — ตั้งค่าจำนวนพลังเชียร์
+- `/cheer-reset` — รีเซ็ตพลังเชียร์และประวัติอุปกรณ์
+- `/db-status` — ตรวจสอบการเชื่อมต่อ Supabase, Render Backend และจำนวนข้อมูลทุกตาราง

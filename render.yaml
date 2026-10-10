@@ -1,10 +1,31 @@
 services:
   - type: web
-    name: saraphee-bot
+    name: saraphee-backend
     runtime: node
     plan: free
     buildCommand: npm install
     startCommand: node bot.js
+    healthCheckPath: /api/health
     envVars:
       - key: PORT
         value: 3001
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
+      - key: DISCORD_CHANNEL_ANNOUNCEMENTS
+        sync: false
+      - key: DISCORD_CHANNEL_CHEER_WALL
+        sync: false
+      - key: DISCORD_CHANNEL_MATCHES
+        sync: false
+      - key: DISCORD_CHANNEL_ROSTER
+        sync: false
+      - key: DISCORD_CHANNEL_REGISTRATIONS
+        sync: false
+      - key: DISCORD_CHANNEL_SCORES
+        sync: false

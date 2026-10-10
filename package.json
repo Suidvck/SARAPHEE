@@ -1,21 +1,24 @@
 {
-  "name": "react-vite-tailwind",
+  "name": "saraphee",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node bot.js",
+    "server": "node bot.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
     "clsx": "2.1.1",
     "cors": "^2.8.6",
     "discord.js": "^14.27.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "framer-motion": "^12.43.0",
-    "mongodb": "^7.6.0",
+    "pg": "^8.23.1",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "tailwind-merge": "3.4.0"
