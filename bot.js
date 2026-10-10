@@ -4,6 +4,8 @@ import cors from "cors";
 import crypto from "crypto";
 import {
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   GatewayIntentBits,
   ModalBuilder,
@@ -694,6 +696,21 @@ async function sendToChannel(channelId, payload) {
   return null;
 }
 
+// Footer ที่ copy ID ได้ง่าย (คลิกขวา -> Copy ID)
+function idFooter(id, label = "ID") {
+  return { text: `${label}: \`${id}\` • คลิกขวาที่ข้อความนี้เพื่อคัดลอก ID` };
+}
+
+// ปุ่มลบที่ผูกกับ id ของรายการ ใช้ลบจาก Supabase ได้โดยไม่ต้องพิมพ์คำสั่ง
+function deleteButtonRow(kind, id, label = "🗑️ ลบออกจากเว็บ") {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`del:${kind}:${id}`)
+      .setLabel(label)
+      .setStyle(ButtonStyle.Danger)
+  );
+}
+
 // Health check endpoint for Render.com
 app.get("/api/health", async (_, res) => {
   const isHealthy = await db.checkHealth();
@@ -778,8 +795,10 @@ app.post("/api/cheer-wall", async (req, res) => {
               { name: "พิกัด", value: `${x}%, ${y}%`, inline: true },
             ],
             timestamp,
+            footer: idFooter(id),
           },
         ],
+        components: [deleteButtonRow("cheer_wall", id, "🗑️ ลบโพสต์นี้")],
       });
     }
 
@@ -1067,9 +1086,10 @@ const COMMAND_HANDLERS = {
             description: detail,
             color: urgent ? 0xd63031 : 0x199c4a,
             timestamp: createdAt,
-            footer: { text: `ID: ${id}` },
+            footer: idFooter(id),
           },
         ],
+        components: [deleteButtonRow("announcement", id, "🗑️ ลบประกาศนี้")],
       });
     }
 
@@ -1137,9 +1157,10 @@ const COMMAND_HANDLERS = {
               ...(venue ? [{ name: "สนาม", value: venue, inline: true }] : []),
             ],
             timestamp: createdAt,
-            footer: { text: `ID: ${id}` },
+            footer: idFooter(id),
           },
         ],
+        components: [deleteButtonRow("match", id, "🗑️ ลบแมตช์นี้")],
       });
     }
 
@@ -1301,9 +1322,10 @@ const COMMAND_HANDLERS = {
               ...(note ? [{ name: "หมายเหตุ", value: note, inline: true }] : []),
             ],
             timestamp: createdAt,
-            footer: { text: `ID: ${id}` },
+            footer: idFooter(id),
           },
         ],
+        components: [deleteButtonRow("roster", id, "🗑️ ลบนักกีฬาคนนี้")],
       });
     }
 
@@ -1541,6 +1563,56 @@ client.on("interactionCreate", async (interaction) => {
     });
   } catch (err) {
     await interaction.reply({ content: `❌ ไม่สำเร็จ: ${err.message}`, ephemeral: true });
+  }
+});
+
+// ปุ่มลบบนข้อความที่บอทส่งลงห้อง — ลบจาก Supabase โดยตรง
+const DELETE_TARGETS = {
+  announcement: { label: "ประกาศ", fn: (id) => db.deleteAnnouncement(id) },
+  match: { label: "แมตช์", fn: (id) => db.deleteMatch(id) },
+  roster: { label: "นักกีฬา", fn: (id) => db.deleteRoster(id) },
+  cheer_wall: { label: "โพสต์เชียร์", fn: (id) => db.deleteCheerWall(id) },
+};
+
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isButton()) return;
+
+  const parts = interaction.customId.split(":");
+  if (parts[0] !== "del" || parts.length < 3) return;
+
+  const target = DELETE_TARGETS[parts[1]];
+  const id = parts.slice(2).join(":");
+  if (!target) return;
+
+  const isStaff =
+    interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages) ||
+    interaction.user.id === client.user?.id;
+  if (!isStaff) {
+    return interaction.reply({
+      content: "⚠️ เฉพาะทีมงาน (สิทธิ์ Manage Messages) เท่านั้นที่กดลบได้",
+      ephemeral: true,
+    });
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    await target.fn(id);
+    // ปิดปุ่มทิ้ง และแก้ embed ให้เห็นว่าถูกลบแล้ว
+    await interaction.update({
+      embeds: [
+        {
+          ...(interaction.message.embeds[0]?.toJSON?.() ?? {}),
+          color: 0x666666,
+          footer: { text: `🗑️ ลบ${target.label}ออกจากเว็บแล้ว • ID: \`${id}\`` },
+        },
+      ],
+      components: [],
+    });
+    await interaction.editReply(`🗑️ ลบ${target.label} ID \`${id}\` ออกจากเว็บเรียบร้อยแล้ว`);
+  } catch (err) {
+    console.error(`Button delete error (${id}):`, err);
+    await interaction.editReply(`❌ ลบไม่สำเร็จ: ${err.message}`);
   }
 });
 
